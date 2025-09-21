@@ -17,5 +17,3 @@ export async function parseRequestJsonToMap(request: Request): Promise<Record<st
 	}
 	return out;
 }
-
-

@@ -19,6 +19,11 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 		}
 	}
 
+	function escapeSqlString(value: string): string {
+		// Minimal escaping for single quotes. Consider server-side parameterization for full safety.
+		return value.replace(/'/g, "''");
+	}
+
 	switch (url.pathname) {
 		case '/check-env': {
 			const envRecord = env as unknown as Record<string, unknown>;
@@ -48,13 +53,42 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 		case '/check-db':
 			return respondSqlQuery('select * from demo where 1');
 
-        case '/register':
-            return respondSqlQuery('select * from demo where 1');
+		case '/register':
+			try {
+				const maps = await parseRequestJsonToMap(request);
+				const missing: string[] = [];
+				for (const key of ['username', 'password', 'prefix']) {
+					if (!(key in maps)) missing.push(key);
+				}
+				if (missing.length > 0) {
+					return new Response(JSON.stringify({ error: 'Missing required fields', fields: missing }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const username = maps['username'];
+				const password = maps['password'];
+				const prefix = maps['prefix'];
+				if (typeof username !== 'string' || typeof password !== 'string' || typeof prefix !== 'string') {
+					return new Response(JSON.stringify({ error: 'username, password, prefix must be strings' }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const q = `INSERT INTO \`users\`(\`username\`, \`password\`, \`prefix\`) VALUES ('${escapeSqlString(username)}','${escapeSqlString(password)}','${escapeSqlString(prefix)}')`;
+				return respondSqlQuery(q);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Invalid JSON';
+				return new Response(JSON.stringify({ error: message }, null, 2), {
+					status: 400,
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			}
 
 		case '/parse-json': {
 			try {
-				const data = await parseRequestJsonToMap(request);
-				return new Response(JSON.stringify(data, null, 2), {
+				const maps = await parseRequestJsonToMap(request);
+				return new Response(JSON.stringify(maps, null, 2), {
 					headers: { 'content-type': 'application/json; charset=utf-8' },
 				});
 			} catch (err) {
