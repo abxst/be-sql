@@ -1,4 +1,5 @@
 import { createConfig } from './config';
+import { parseRequestJsonToMap } from './json';
 
 export async function routeRequest(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
@@ -47,6 +48,24 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 		case '/check-db':
 			return respondSqlQuery('select * from demo where 1');
 
+        case '/register':
+            return respondSqlQuery('select * from demo where 1');
+
+		case '/parse-json': {
+			try {
+				const data = await parseRequestJsonToMap(request);
+				return new Response(JSON.stringify(data, null, 2), {
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Invalid JSON';
+				return new Response(JSON.stringify({ error: message }, null, 2), {
+					status: 400,
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			}
+		}
+            
 		default: {
 			const config = createConfig(env);
 			return new Response('Hello World!');
