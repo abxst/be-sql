@@ -8,6 +8,8 @@ declare global {
 	interface Env {
 		/** Base URL for the SQL API (e.g., https://api.example.com/sql) */
 		URL_API_SQL: string;
+		/** Secret for encrypting/signing session cookies */
+		SESSION_SECRET: string;
 	}
 }
 

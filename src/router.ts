@@ -1,4 +1,5 @@
 import { createConfig } from './config';
+import { buildSetCookie, encryptSessionCookie, readSessionFromRequest } from './auth';
 import { parseRequestJsonToMap } from './json';
 
 export async function routeRequest(request: Request, env: Env): Promise<Response> {
@@ -107,7 +108,25 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
                         });
                     }
                     const q = `SELECT * FROM \`users\` WHERE \`username\`='${escapeSqlString(username)}' AND \`password\`='${escapeSqlString(password)}' LIMIT 1`;
-                    return respondSqlQuery(q);
+                    const { executeSqlQuery } = await import('./sql');
+                    const config = createConfig(env);
+                    const rows = await executeSqlQuery(config, q);
+                    if (!Array.isArray(rows) || rows.length === 0) {
+                        return new Response(JSON.stringify({ error: 'Invalid credentials' }, null, 2), {
+                            status: 401,
+                            headers: { 'content-type': 'application/json; charset=utf-8' },
+                        });
+                    }
+                    const row = rows[0] as any;
+                    const prefix = String(row?.prefix ?? '');
+                    const token = await encryptSessionCookie(env, { username, prefix });
+                    const cookie = buildSetCookie('session', token, 60 * 60 * 24 * 7);
+                    return new Response(JSON.stringify({ status: 'ok' }, null, 2), {
+                        headers: {
+                            'content-type': 'application/json; charset=utf-8',
+                            'set-cookie': cookie,
+                        },
+                    });
                 } catch (err) {
                     const message = err instanceof Error ? err.message : 'Invalid JSON';
                     return new Response(JSON.stringify({ error: message }, null, 2), {
@@ -115,6 +134,11 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
                         headers: { 'content-type': 'application/json; charset=utf-8' },
                     });
                 }
+
+        
+
+        case '/check-db':
+            return respondSqlQuery('select * from demo where 1');
 
 		case '/parse-json': {
 			try {
@@ -124,6 +148,43 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				});
 			} catch (err) {
 				const message = err instanceof Error ? err.message : 'Invalid JSON';
+				return new Response(JSON.stringify({ error: message }, null, 2), {
+					status: 400,
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			}
+		}
+
+		case '/get-key': {
+			try {
+				const session = await readSessionFromRequest(env, request);
+				if (!session) {
+					return new Response(JSON.stringify({ error: 'Unauthorized' }, null, 2), {
+						status: 401,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const userPrefix = session.prefix;
+
+				const pageParam = url.searchParams.get('page');
+				const sizeParam = url.searchParams.get('pageSize') ?? url.searchParams.get('limit');
+				let page = 1;
+				if (pageParam && !Number.isNaN(Number(pageParam))) page = Math.max(1, Math.floor(Number(pageParam)));
+				let pageSize = 50;
+				if (sizeParam && !Number.isNaN(Number(sizeParam))) pageSize = Math.floor(Number(sizeParam));
+				if (pageSize < 1) pageSize = 1;
+				if (pageSize > 50) pageSize = 50;
+				const offset = (page - 1) * pageSize;
+
+				const { executeSqlQuery } = await import('./sql');
+				const config = createConfig(env);
+				const keysQuery = `SELECT * FROM \`ukeys\` WHERE \`prefix\`='${escapeSqlString(userPrefix)}' ORDER BY \`id\` DESC LIMIT ${pageSize} OFFSET ${offset}`;
+				const data = await executeSqlQuery(config, keysQuery);
+				return new Response(JSON.stringify({ page, pageSize, data }, null, 2), {
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Invalid request';
 				return new Response(JSON.stringify({ error: message }, null, 2), {
 					status: 400,
 					headers: { 'content-type': 'application/json; charset=utf-8' },
