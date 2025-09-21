@@ -1,7 +1,7 @@
 /** CORS helpers. */
 
 export const corsHeaders: HeadersInit = {
-	'Access-Control-Allow-Origin': 'web.hainth.edu.vn',
+	'Access-Control-Allow-Origin': 'https://web.hainth.edu.vn/',
 	'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
 	'Access-Control-Allow-Headers': '*',
 	'Access-Control-Max-Age': '86400',
