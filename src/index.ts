@@ -14,6 +14,11 @@
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
 		const { routeRequest } = await import('./router');
-		return routeRequest(request, env);
+		const { withCors, preflightCors } = await import('./cors');
+		if (request.method === 'OPTIONS') {
+			return preflightCors();
+		}
+		const resp = await routeRequest(request, env);
+		return withCors(resp);
 	},
 } satisfies ExportedHandler<Env>;
