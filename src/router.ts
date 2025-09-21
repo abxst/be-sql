@@ -85,6 +85,37 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				});
 			}
 
+            case '/login':
+                try {
+                    const maps = await parseRequestJsonToMap(request);
+                    const missing: string[] = [];
+                    for (const key of ['username', 'password']) {
+                        if (!(key in maps)) missing.push(key);
+                    }
+                    if (missing.length > 0) {
+                        return new Response(JSON.stringify({ error: 'Missing required fields', fields: missing }, null, 2), {
+                            status: 400,
+                            headers: { 'content-type': 'application/json; charset=utf-8' },
+                        });
+                    }
+                    const username = maps['username'];
+                    const password = maps['password'];
+                    if (typeof username !== 'string' || typeof password !== 'string') {
+                        return new Response(JSON.stringify({ error: 'username, password must be strings' }, null, 2), {
+                            status: 400,
+                            headers: { 'content-type': 'application/json; charset=utf-8' },
+                        });
+                    }
+                    const q = `SELECT * FROM \`users\` WHERE \`username\`='${escapeSqlString(username)}' AND \`password\`='${escapeSqlString(password)}' LIMIT 1`;
+                    return respondSqlQuery(q);
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Invalid JSON';
+                    return new Response(JSON.stringify({ error: message }, null, 2), {
+                        status: 400,
+                        headers: { 'content-type': 'application/json; charset=utf-8' },
+                    });
+                }
+
 		case '/parse-json': {
 			try {
 				const maps = await parseRequestJsonToMap(request);
