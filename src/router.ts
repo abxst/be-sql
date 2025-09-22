@@ -204,8 +204,25 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				}
 				const userPrefix = session.prefix;
 
-				const amountParam = url.searchParams.get('amount');
-				const lengthParam = url.searchParams.get('length');
+				const maps = await parseRequestJsonToMap(request);
+				const missing: string[] = [];
+				for (const key of ['amount', 'length']) {
+					if (!(key in maps)) missing.push(key);
+				}
+				if (missing.length > 0) {
+					return new Response(JSON.stringify({ error: 'Missing required fields', fields: missing }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const amountParam = maps['amount'];
+				const lengthParam = maps['length'];
+				if (typeof amountParam !== 'string' || typeof lengthParam !== 'string') {
+					return new Response(JSON.stringify({ error: 'amount and length must be strings' }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
 				
 				let amount = 1;
 				if (amountParam && !Number.isNaN(Number(amountParam))) amount = Math.max(1, Math.floor(Number(amountParam)));
