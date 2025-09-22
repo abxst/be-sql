@@ -1,6 +1,6 @@
 /** CORS helpers. */
 
-const allowedOrigins = ['http://localhost:3000', 'https://webpanel.hainth.edu.vn', 'https://fe-webpanel.pages.dev']; // Add production origins here
+const allowedOrigins = ['https://webpanel.hainth.edu.vn', 'https://fe-webpanel.pages.dev']; // Add production origins here
 
 export function withCors(response: Response, request: Request): Response {
 	const origin = request.headers.get('origin') || '';
