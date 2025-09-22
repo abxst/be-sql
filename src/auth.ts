@@ -5,23 +5,76 @@ export interface SessionPayload {
 	prefix: string;
 }
 
-// Temporarily disable encryption for debugging
+async function importAesKey(secret: string): Promise<CryptoKey> {
+	const enc = new TextEncoder();
+	const raw = await crypto.subtle.digest('SHA-256', enc.encode(secret));
+	return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
 export async function encryptSessionCookie(env: Env, payload: SessionPayload, ttlSeconds = 60 * 60 * 24): Promise<string> {
-	const expPayload = { ...payload, exp: Math.floor(Date.now() / 1000) + ttlSeconds };
-	const plaintext = JSON.stringify(expPayload);
-	const token = btoa(plaintext); // Use base64 instead of encryption
+	const key = await importAesKey(env.SESSION_SECRET);
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const enc = new TextEncoder();
+	const plaintext = enc.encode(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + ttlSeconds }));
+	const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext));
+	const token = base64urlConcat(iv, ciphertext);
 	return token;
 }
 
 export async function decryptSessionCookie(env: Env, token: string): Promise<SessionPayload | null> {
 	try {
-		const plaintext = atob(token); // Decode base64
-		const obj = JSON.parse(plaintext) as { username: string; prefix: string; exp?: number };
+		const key = await importAesKey(env.SESSION_SECRET);
+		const { iv, ciphertext } = base64urlSplit(token);
+		const plaintext = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext));
+		const dec = new TextDecoder();
+		const obj = JSON.parse(dec.decode(plaintext)) as { username: string; prefix: string; exp?: number };
 		if (typeof obj.exp === 'number' && obj.exp < Math.floor(Date.now() / 1000)) return null;
 		return { username: obj.username, prefix: obj.prefix };
 	} catch {
 		return null;
 	}
+}
+
+function base64urlConcat(iv: Uint8Array, ciphertext: Uint8Array): string {
+	const combined = new Uint8Array(iv.length + ciphertext.length);
+	combined.set(iv, 0);
+	combined.set(ciphertext, iv.length);
+	return toBase64Url(combined);
+}
+
+function base64urlSplit(token: string): { iv: Uint8Array; ciphertext: Uint8Array } {
+	const bytes = fromBase64Url(token);
+	const iv = bytes.slice(0, 12);
+	const ciphertext = bytes.slice(12);
+	return { iv, ciphertext };
+}
+
+function toBase64Url(bytes: Uint8Array): string {
+	let bin = '';
+	for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+	const b64 = btoa(bin);
+	return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function fromBase64Url(b64url: string): Uint8Array {
+	const pad = b64url.length % 4 === 2 ? '==' : b64url.length % 4 === 3 ? '=' : '';
+	const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/') + pad;
+	const bin = atob(b64);
+	const bytes = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+	return bytes;
+}
+
+export function buildSetCookie(name: string, value: string, maxAgeSeconds: number): string {
+	const attrs = [
+		`${name}=${value}`,
+		`Path=/`,
+		`HttpOnly`,
+		`SameSite=None`,
+		`Max-Age=${Math.max(0, Math.floor(maxAgeSeconds))}`,
+		`Secure`,
+	];
+	return attrs.join('; ');
 }
 
 export function getCookie(request: Request, name: string): string | null {
@@ -39,22 +92,7 @@ export function getCookie(request: Request, name: string): string | null {
 }
 
 export async function readSessionFromRequest(env: Env, request: Request): Promise<SessionPayload | null> {
-	console.log('Cookie header:', request.headers.get('cookie'));
 	const token = getCookie(request, 'session');
-	console.log('Extracted session token:', token);
 	if (!token) return null;
 	return decryptSessionCookie(env, token);
-}
-
-// Ensure buildSetCookie is complete
-export function buildSetCookie(name: string, value: string, maxAgeSeconds: number): string {
-	const attrs = [
-		`${name}=${value}`,
-		`Path=/`,
-		`HttpOnly`,
-		`SameSite=None`,
-		`Max-Age=${Math.max(0, Math.floor(maxAgeSeconds))}`,
-		`Secure`,
-	];
-	return attrs.join('; ');
 }
