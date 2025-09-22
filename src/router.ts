@@ -279,6 +279,16 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 			}
 		}
 
+		case '/logout': {
+			const cookie = buildSetCookie('session', '', 0); // Expire the session cookie
+			return new Response(JSON.stringify({ status: 'ok', message: 'Logged out' }, null, 2), {
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'set-cookie': cookie,
+				},
+			});
+		}
+
 		case '/delete-key': {
 			try {
 				const session = await readSessionFromRequest(env, request);
