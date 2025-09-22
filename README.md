@@ -54,7 +54,3 @@ Cookie HttpOnly, Secure, SameSite=None. Mã hóa AES-GCM. Logout xóa cookie.
 ## Tác giả
 
 abxST
-
-## Giấy phép
-
-MIT
