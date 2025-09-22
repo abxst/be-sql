@@ -92,7 +92,9 @@ export function getCookie(request: Request, name: string): string | null {
 }
 
 export async function readSessionFromRequest(env: Env, request: Request): Promise<SessionPayload | null> {
+	console.log('Cookie header:', request.headers.get('cookie'));
 	const token = getCookie(request, 'session');
+	console.log('Extracted session token:', token);
 	if (!token) return null;
 	return decryptSessionCookie(env, token);
 }

@@ -121,6 +121,7 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
                     const prefix = String(row?.prefix ?? '');
                     const token = await encryptSessionCookie(env, { username, prefix });
                     const cookie = buildSetCookie('session', token, 60 * 60 * 24);
+                    console.log('Generated Set-Cookie:', cookie);
                     return new Response(JSON.stringify({ status: 'ok' }, null, 2), {
                         headers: {
                             'content-type': 'application/json; charset=utf-8',
