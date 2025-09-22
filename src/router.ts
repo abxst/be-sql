@@ -217,7 +217,7 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				}
 				const amountParam = maps['amount'];
 				const lengthParam = maps['length'];
-				if (typeof amountParam !== 'string' || typeof lengthParam !== 'string') {
+				if (typeof amountParam !== 'number' || typeof lengthParam !== 'number') {
 					return new Response(JSON.stringify({ error: 'amount and length must be strings' }, null, 2), {
 						status: 400,
 						headers: { 'content-type': 'application/json; charset=utf-8' },
