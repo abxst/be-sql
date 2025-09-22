@@ -249,7 +249,7 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				
 				const generatedKeys = [];
 				for (let i = 0; i < amount; i++) {
-					const key = userPrefix + '_' + lengthParam + '_' + generateRandomKey(keyLength);
+					const key = userPrefix + '_' + lengthParam + '_' + generateRandomKey(15);
 					generatedKeys.push(key);
 				}
 
