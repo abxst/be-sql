@@ -224,11 +224,25 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 					});
 				}
 				
-				let amount = 1;
-				if (amountParam && !Number.isNaN(Number(amountParam))) amount = Math.max(1, Math.floor(Number(amountParam)));
+				const amountNum = Number(amountParam);
+				const lengthNum = Number(lengthParam);
 				
-				let keyLength = 30; // Default length
-				if (lengthParam && !Number.isNaN(Number(lengthParam))) keyLength = Math.max(8, Math.min(32, Math.floor(Number(lengthParam)))); // Limit between 8-32
+				if (Number.isNaN(amountNum) || amountNum < 1) {
+					return new Response(JSON.stringify({ error: 'amount must be a positive integer' }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				
+				if (Number.isNaN(lengthNum) || lengthNum < 1 || lengthNum > 30) {
+					return new Response(JSON.stringify({ error: 'length must be an integer between 1 and 30' }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				
+				const amount = Math.floor(amountNum);
+				const keyLength = Math.floor(lengthNum);
 				
 				const { executeSqlQuery } = await import('./sql');
 				const config = createConfig(env);
