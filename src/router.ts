@@ -187,7 +187,33 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				});
 			}
 		}
-            
+
+		case '/get-info': {
+			try {
+				const session = await readSessionFromRequest(env, request);
+				if (!session) {
+					return new Response(JSON.stringify({ error: 'Unauthorized' }, null, 2), {
+						status: 401,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const userPrefix = session.prefix;
+				const infoQuery = `SELECT \`id\`, \`username\`, \`prefix\`, \`last_login\` FROM \`users\` WHERE \`prefix\` = '${escapeSqlString(userPrefix)}'`;
+				const { executeSqlQuery } = await import('./sql');
+				const config = createConfig(env);
+				const data = await executeSqlQuery(config, infoQuery);
+				return new Response(JSON.stringify({ status: 'ok', data }, null, 2), {
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Invalid request';
+				return new Response(JSON.stringify({ error: message }, null, 2), {
+					status: 400,
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			}
+		}
+
 		default: {
 			const config = createConfig(env);
 			return new Response('Hello World!');
