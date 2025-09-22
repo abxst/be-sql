@@ -16,9 +16,9 @@ export default {
 		const { routeRequest } = await import('./router');
 		const { withCors, preflightCors } = await import('./cors');
 		if (request.method === 'OPTIONS') {
-			return preflightCors();
+			return preflightCors(request);
 		}
 		const resp = await routeRequest(request, env);
-		return withCors(resp);
+		return withCors(resp, request);
 	},
 } satisfies ExportedHandler<Env>;
