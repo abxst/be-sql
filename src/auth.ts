@@ -24,6 +24,28 @@ export async function decryptSessionCookie(env: Env, token: string): Promise<Ses
 	}
 }
 
+export function getCookie(request: Request, name: string): string | null {
+	const cookie = request.headers.get('cookie');
+	if (!cookie) return null;
+	const parts = cookie.split(/;\s*/);
+	for (const part of parts) {
+		const idx = part.indexOf('=');
+		if (idx === -1) continue;
+		const k = part.slice(0, idx).trim();
+		const v = part.slice(idx + 1).trim();
+		if (k === name) return v;
+	}
+	return null;
+}
+
+export async function readSessionFromRequest(env: Env, request: Request): Promise<SessionPayload | null> {
+	console.log('Cookie header:', request.headers.get('cookie'));
+	const token = getCookie(request, 'session');
+	console.log('Extracted session token:', token);
+	if (!token) return null;
+	return decryptSessionCookie(env, token);
+}
+
 // Ensure buildSetCookie is complete
 export function buildSetCookie(name: string, value: string, maxAgeSeconds: number): string {
 	const attrs = [
