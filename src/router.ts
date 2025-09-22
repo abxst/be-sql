@@ -136,11 +136,6 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
                     });
                 }
 
-        
-
-        case '/check-db':
-            return respondSqlQuery('select * from demo where 1');
-
 		case '/parse-json': {
 			try {
 				const maps = await parseRequestJsonToMap(request);
