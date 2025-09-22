@@ -193,6 +193,61 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 			}
 		}
 
+		case '/add-key': {
+			try {
+				const session = await readSessionFromRequest(env, request);
+				if (!session) {
+					return new Response(JSON.stringify({ error: 'Unauthorized' }, null, 2), {
+						status: 401,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const userPrefix = session.prefix;
+
+				const amountParam = url.searchParams.get('amount');
+				const lengthParam = url.searchParams.get('length');
+				
+				let amount = 1;
+				if (amountParam && !Number.isNaN(Number(amountParam))) amount = Math.max(1, Math.floor(Number(amountParam)));
+				
+				let keyLength = 30; // Default length
+				if (lengthParam && !Number.isNaN(Number(lengthParam))) keyLength = Math.max(8, Math.min(32, Math.floor(Number(lengthParam)))); // Limit between 8-32
+				
+				const { executeSqlQuery } = await import('./sql');
+				const config = createConfig(env);
+				
+				const generatedKeys = [];
+				for (let i = 0; i < amount; i++) {
+					const key = userPrefix + '_' + lengthParam + '_' + generateRandomKey(keyLength);
+					generatedKeys.push(key);
+				}
+
+				// Build multiple VALUES for single INSERT
+				const values = generatedKeys.map(key => `('${escapeSqlString(key)}', ${keyLength}, '${escapeSqlString(userPrefix)}')`).join(', ');
+				const insertQuery = `INSERT INTO \`ukeys\`(\`key\`, \`length\`, \`prefix\`) VALUES ${values}`;
+				await executeSqlQuery(config, insertQuery);
+
+				// Return the generated keys directly
+				const createdKeys = generatedKeys.map(key => ({
+					key,
+					length: keyLength,
+					prefix: userPrefix,
+					time_start: null,
+					time_end: null
+				}));
+
+				return new Response(JSON.stringify({ status: 'ok', generated: amount, keys: createdKeys }, null, 2), {
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Invalid request';
+				return new Response(JSON.stringify({ error: message }, null, 2), {
+					status: 400,
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			}
+		}
+
 		case '/get-info': {
 			try {
 				const session = await readSessionFromRequest(env, request);
@@ -224,6 +279,15 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 			return new Response('Hello World!');
 		}
 	}
+}
+
+function generateRandomKey(length: number = 20): string {
+	const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+	let key = '';
+	for (let i = 0; i < length; i++) {
+		key += chars.charAt(Math.floor(Math.random() * chars.length));
+	}
+	return key;
 }
 
 
