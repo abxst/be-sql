@@ -11,7 +11,7 @@ async function importAesKey(secret: string): Promise<CryptoKey> {
 	return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
 
-export async function encryptSessionToken(env: Env, payload: SessionPayload, ttlSeconds = 60 * 60 * 24 * 7): Promise<string> {
+export async function encryptSessionCookie(env: Env, payload: SessionPayload, ttlSeconds = 60 * 60 * 24): Promise<string> {
 	const key = await importAesKey(env.SESSION_SECRET);
 	const iv = crypto.getRandomValues(new Uint8Array(12));
 	const enc = new TextEncoder();
@@ -21,7 +21,7 @@ export async function encryptSessionToken(env: Env, payload: SessionPayload, ttl
 	return token;
 }
 
-export async function decryptSessionToken(env: Env, token: string): Promise<SessionPayload | null> {
+export async function decryptSessionCookie(env: Env, token: string): Promise<SessionPayload | null> {
 	try {
 		const key = await importAesKey(env.SESSION_SECRET);
 		const { iv, ciphertext } = base64urlSplit(token);
@@ -65,12 +65,36 @@ function fromBase64Url(b64url: string): Uint8Array {
 	return bytes;
 }
 
-export async function readSession(env: Env, request: Request): Promise<SessionPayload | null> {
-	const auth = request.headers.get('Authorization');
-	if (!auth || !auth.startsWith('Bearer ')) return null;
-	const token = auth.substring(7).trim();
+export function buildSetCookie(name: string, value: string, maxAgeSeconds: number): string {
+	const attrs = [
+		`${name}=${value}`,
+		`Path=/`,
+		`HttpOnly`,
+		`SameSite=Lax`,
+		`Max-Age=${Math.max(0, Math.floor(maxAgeSeconds))}`,
+		`Secure`,
+	];
+	return attrs.join('; ');
+}
+
+export function getCookie(request: Request, name: string): string | null {
+	const cookie = request.headers.get('cookie');
+	if (!cookie) return null;
+	const parts = cookie.split(/;\s*/);
+	for (const part of parts) {
+		const idx = part.indexOf('=');
+		if (idx === -1) continue;
+		const k = part.slice(0, idx).trim();
+		const v = part.slice(idx + 1).trim();
+		if (k === name) return v;
+	}
+	return null;
+}
+
+export async function readSessionFromRequest(env: Env, request: Request): Promise<SessionPayload | null> {
+	const token = getCookie(request, 'session');
 	if (!token) return null;
-	return decryptSessionToken(env, token);
+	return decryptSessionCookie(env, token);
 }
 
 

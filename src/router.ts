@@ -1,5 +1,5 @@
 import { createConfig } from './config';
-import { encryptSessionToken, readSession } from './auth';
+import { buildSetCookie, encryptSessionCookie, readSessionFromRequest } from './auth';
 import { parseRequestJsonToMap } from './json';
 
 export async function routeRequest(request: Request, env: Env): Promise<Response> {
@@ -119,10 +119,12 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
                     }
                     const row = rows[0] as any;
                     const prefix = String(row?.prefix ?? '');
-                    const token = await encryptSessionToken(env, { username, prefix });
-                    return new Response(JSON.stringify({ status: 'ok', token }, null, 2), {
+                    const token = await encryptSessionCookie(env, { username, prefix });
+                    const cookie = buildSetCookie('session', token, 60 * 60 * 24);
+                    return new Response(JSON.stringify({ status: 'ok' }, null, 2), {
                         headers: {
                             'content-type': 'application/json; charset=utf-8',
+                            'set-cookie': cookie,
                         },
                     });
                 } catch (err) {
@@ -155,7 +157,7 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 
 		case '/get-key': {
 			try {
-				const session = await readSession(env, request);
+				const session = await readSessionFromRequest(env, request);
 				if (!session) {
 					return new Response(JSON.stringify({ error: 'Unauthorized' }, null, 2), {
 						status: 401,
