@@ -179,7 +179,7 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 
 				const { executeSqlQuery } = await import('./sql');
 				const config = createConfig(env);
-				const keysQuery = `SELECT * FROM \`ukeys\` WHERE \`prefix\`='${escapeSqlString(userPrefix)}' ORDER BY \`id_key\` DESC LIMIT ${pageSize} OFFSET ${offset}`;
+				const keysQuery = `SELECT * FROM \`ukeys\` WHERE \`prefix\`='${escapeSqlString(userPrefix)}' ORDER BY \`id_key\` ASC LIMIT ${pageSize} OFFSET ${offset}`;
 				const data = await executeSqlQuery(config, keysQuery);
 				return new Response(JSON.stringify({ page, pageSize, data }, null, 2), {
 					headers: { 'content-type': 'application/json; charset=utf-8' },
