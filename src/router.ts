@@ -336,6 +336,53 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 			}
 		}
 
+		case '/reset-key': {
+			try {
+				const session = await readSessionFromRequest(env, request);
+				if (!session) {
+					return new Response(JSON.stringify({ error: 'Unauthorized' }, null, 2), {
+						status: 401,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const userPrefix = session.prefix;
+
+				const maps = await parseRequestJsonToMap(request);
+				const missing: string[] = [];
+				for (const key of ['key']) {
+					if (!(key in maps)) missing.push(key);
+				}
+				if (missing.length > 0) {
+					return new Response(JSON.stringify({ error: 'Missing required fields', fields: missing }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const keyToDelete = maps['key'];
+				if (typeof keyToDelete !== 'string') {
+					return new Response(JSON.stringify({ error: 'key must be a string' }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+
+				const { executeSqlQuery } = await import('./sql');
+				const config = createConfig(env);
+				const deleteQuery = `UPDATE \`ukeys\` SET \`id_device\` = NULL WHERE \`key\` = '${escapeSqlString(keyToDelete)}' AND \`prefix\` = '${escapeSqlString(userPrefix)}'`;
+				const result = await executeSqlQuery(config, deleteQuery);
+
+				return new Response(JSON.stringify({ status: 'ok', deleted: (result as any).affectedRows || 0 }, null, 2), {
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Invalid request';
+				return new Response(JSON.stringify({ error: message }, null, 2), {
+					status: 400,
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			}
+		}
+
 		case '/get-info': {
 			try {
 				const session = await readSessionFromRequest(env, request);
