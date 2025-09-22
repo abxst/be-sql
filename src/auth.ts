@@ -52,7 +52,7 @@ export function buildSetCookie(name: string, value: string, maxAgeSeconds: numbe
 		`${name}=${value}`,
 		`Path=/`,
 		`HttpOnly`,
-		`SameSite=Lax`,
+		`SameSite=None`,
 		`Max-Age=${Math.max(0, Math.floor(maxAgeSeconds))}`,
 		`Secure`,
 	];
