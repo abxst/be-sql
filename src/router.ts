@@ -107,7 +107,9 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
                             headers: { 'content-type': 'application/json; charset=utf-8' },
                         });
                     }
-                    const q = `SELECT * FROM \`users\` WHERE \`username\`='${escapeSqlString(username)}' AND \`password\`='${escapeSqlString(password)}' LIMIT 1`;
+                    const q = `SELECT * FROM \`users\` WHERE \`username\`='${escapeSqlString(username)}' AND \`password\`='${escapeSqlString(password)}' LIMIT 1;
+					update \`users\`
+					`;
                     const { executeSqlQuery } = await import('./sql');
                     const config = createConfig(env);
                     const rows = await executeSqlQuery(config, q);
@@ -117,6 +119,9 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
                             headers: { 'content-type': 'application/json; charset=utf-8' },
                         });
                     }
+                    // Update last_login
+                    const updateQuery = `UPDATE \`users\` SET \`last_login\` = CURRENT_TIMESTAMP WHERE \`username\` = '${escapeSqlString(username)}'`;
+                    await executeSqlQuery(config, updateQuery);
                     const row = rows[0] as any;
                     const prefix = String(row?.prefix ?? '');
                     const token = await encryptSessionCookie(env, { username, prefix });
