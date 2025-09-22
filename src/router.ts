@@ -86,60 +86,60 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				});
 			}
 
-            case '/login':
-                try {
-                    const maps = await parseRequestJsonToMap(request);
-                    const missing: string[] = [];
-                    for (const key of ['username', 'password']) {
-                        if (!(key in maps)) missing.push(key);
-                    }
-                    if (missing.length > 0) {
-                        return new Response(JSON.stringify({ error: 'Missing required fields', fields: missing }, null, 2), {
-                            status: 400,
-                            headers: { 'content-type': 'application/json; charset=utf-8' },
-                        });
-                    }
-                    const username = maps['username'];
-                    const password = maps['password'];
-                    if (typeof username !== 'string' || typeof password !== 'string') {
-                        return new Response(JSON.stringify({ error: 'username, password must be strings' }, null, 2), {
-                            status: 400,
-                            headers: { 'content-type': 'application/json; charset=utf-8' },
-                        });
-                    }
-                    const q = `SELECT * FROM \`users\` WHERE \`username\`='${escapeSqlString(username)}' AND \`password\`='${escapeSqlString(password)}' LIMIT 1;
+		case '/login':
+			try {
+				const maps = await parseRequestJsonToMap(request);
+				const missing: string[] = [];
+				for (const key of ['username', 'password']) {
+					if (!(key in maps)) missing.push(key);
+				}
+				if (missing.length > 0) {
+					return new Response(JSON.stringify({ error: 'Missing required fields', fields: missing }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const username = maps['username'];
+				const password = maps['password'];
+				if (typeof username !== 'string' || typeof password !== 'string') {
+					return new Response(JSON.stringify({ error: 'username, password must be strings' }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const q = `SELECT * FROM \`users\` WHERE \`username\`='${escapeSqlString(username)}' AND \`password\`='${escapeSqlString(password)}' LIMIT 1;
 					update \`users\`
 					`;
-                    const { executeSqlQuery } = await import('./sql');
-                    const config = createConfig(env);
-                    const rows = await executeSqlQuery(config, q);
-                    if (!Array.isArray(rows) || rows.length === 0) {
-                        return new Response(JSON.stringify({ error: 'Invalid credentials' }, null, 2), {
-                            status: 401,
-                            headers: { 'content-type': 'application/json; charset=utf-8' },
-                        });
-                    }
-                    // Update last_login
-                    const updateQuery = `UPDATE \`users\` SET \`last_login\` = CURRENT_TIMESTAMP WHERE \`username\` = '${escapeSqlString(username)}'`;
-                    await executeSqlQuery(config, updateQuery);
-                    const row = rows[0] as any;
-                    const prefix = String(row?.prefix ?? '');
-                    const token = await encryptSessionCookie(env, { username, prefix });
-                    const cookie = buildSetCookie('session', token, 60 * 60 * 24);
-                    console.log('Generated Set-Cookie:', cookie);
-                    return new Response(JSON.stringify({ status: 'ok' }, null, 2), {
-                        headers: {
-                            'content-type': 'application/json; charset=utf-8',
-                            'set-cookie': cookie,
-                        },
-                    });
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : 'Invalid JSON';
-                    return new Response(JSON.stringify({ error: message }, null, 2), {
-                        status: 400,
-                        headers: { 'content-type': 'application/json; charset=utf-8' },
-                    });
-                }
+				const { executeSqlQuery } = await import('./sql');
+				const config = createConfig(env);
+				const rows = await executeSqlQuery(config, q);
+				if (!Array.isArray(rows) || rows.length === 0) {
+					return new Response(JSON.stringify({ error: 'Invalid credentials' }, null, 2), {
+						status: 401,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				// Update last_login
+				const updateQuery = `UPDATE \`users\` SET \`last_login\` = CURRENT_TIMESTAMP WHERE \`username\` = '${escapeSqlString(username)}'`;
+				await executeSqlQuery(config, updateQuery);
+				const row = rows[0] as any;
+				const prefix = String(row?.prefix ?? '');
+				const token = await encryptSessionCookie(env, { username, prefix });
+				const cookie = buildSetCookie('session', token, 60 * 60 * 24);
+				console.log('Generated Set-Cookie:', cookie);
+				return new Response(JSON.stringify({ status: 'ok' }, null, 2), {
+					headers: {
+						'content-type': 'application/json; charset=utf-8',
+						'set-cookie': cookie,
+					},
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Invalid JSON';
+				return new Response(JSON.stringify({ error: message }, null, 2), {
+					status: 400,
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			}
 
 		case '/parse-json': {
 			try {
@@ -223,30 +223,30 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 						headers: { 'content-type': 'application/json; charset=utf-8' },
 					});
 				}
-				
+
 				const amountNum = Number(amountParam);
 				const lengthNum = Number(lengthParam);
-				
-				if (Number.isNaN(amountNum) || amountNum < 1) {
-					return new Response(JSON.stringify({ error: 'amount must be a positive integer' }, null, 2), {
+
+				if (Number.isNaN(amountNum) || amountNum < 1 || amountNum > 30) {
+					return new Response(JSON.stringify({ error: 'amount must be an integer between 1 and 30' }, null, 2), {
 						status: 400,
 						headers: { 'content-type': 'application/json; charset=utf-8' },
 					});
 				}
-				
+
 				if (Number.isNaN(lengthNum) || lengthNum < 1 || lengthNum > 30) {
 					return new Response(JSON.stringify({ error: 'length must be an integer between 1 and 30' }, null, 2), {
 						status: 400,
 						headers: { 'content-type': 'application/json; charset=utf-8' },
 					});
 				}
-				
+
 				const amount = Math.floor(amountNum);
 				const keyLength = Math.floor(lengthNum);
-				
+
 				const { executeSqlQuery } = await import('./sql');
 				const config = createConfig(env);
-				
+
 				const generatedKeys = [];
 				for (let i = 0; i < amount; i++) {
 					const key = userPrefix + '_' + lengthParam + '_' + generateRandomKey(15);
@@ -268,6 +268,53 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				}));
 
 				return new Response(JSON.stringify({ status: 'ok', generated: amount, keys: createdKeys }, null, 2), {
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Invalid request';
+				return new Response(JSON.stringify({ error: message }, null, 2), {
+					status: 400,
+					headers: { 'content-type': 'application/json; charset=utf-8' },
+				});
+			}
+		}
+
+		case '/delete-key': {
+			try {
+				const session = await readSessionFromRequest(env, request);
+				if (!session) {
+					return new Response(JSON.stringify({ error: 'Unauthorized' }, null, 2), {
+						status: 401,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const userPrefix = session.prefix;
+
+				const maps = await parseRequestJsonToMap(request);
+				const missing: string[] = [];
+				for (const key of ['key']) {
+					if (!(key in maps)) missing.push(key);
+				}
+				if (missing.length > 0) {
+					return new Response(JSON.stringify({ error: 'Missing required fields', fields: missing }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+				const keyToDelete = maps['key'];
+				if (typeof keyToDelete !== 'string') {
+					return new Response(JSON.stringify({ error: 'key must be a string' }, null, 2), {
+						status: 400,
+						headers: { 'content-type': 'application/json; charset=utf-8' },
+					});
+				}
+
+				const { executeSqlQuery } = await import('./sql');
+				const config = createConfig(env);
+				const deleteQuery = `DELETE FROM \`ukeys\` WHERE \`key\` = '${escapeSqlString(keyToDelete)}' AND \`prefix\` = '${escapeSqlString(userPrefix)}'`;
+				const result = await executeSqlQuery(config, deleteQuery);
+
+				return new Response(JSON.stringify({ status: 'ok', deleted: (result as any).affectedRows || 0 }, null, 2), {
 					headers: { 'content-type': 'application/json; charset=utf-8' },
 				});
 			} catch (err) {

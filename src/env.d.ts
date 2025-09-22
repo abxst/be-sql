@@ -2,7 +2,7 @@
  * After updating, run `npm run cf-typegen` to regenerate base types as needed.
  */
 
-export {};
+export { };
 
 declare global {
 	interface Env {
