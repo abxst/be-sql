@@ -46,6 +46,7 @@ Dự án backend serverless sử dụng TypeScript, chạy trên CloudFlare Work
 | POST | /delete-key | Xóa khóa (auth) |
 | GET | /get-info | Lấy thông tin user (auth) |
 | POST | /reset-key | Reset khóa (auth) |
+| POST | /login-client | Login với key và id_device |
 
 ## Xác thực
 

@@ -1,6 +1,7 @@
 import { createConfig } from './config';
-import { buildSetCookie, encryptSessionCookie, readSessionFromRequest } from './auth';
+import { buildSetCookie, encryptSessionCookie, readSessionFromRequest, decryptJson, encryptJson } from './auth';
 import { parseRequestJsonToMap } from './json';
+import { handleClientLogin } from './client-login';
 
 export async function routeRequest(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
@@ -382,6 +383,9 @@ export async function routeRequest(request: Request, env: Env): Promise<Response
 				});
 			}
 		}
+
+		case '/login-client':
+			return handleClientLogin(request, env);
 
 		case '/get-info': {
 			try {

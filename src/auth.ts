@@ -96,3 +96,24 @@ export async function readSessionFromRequest(env: Env, request: Request): Promis
 	if (!token) return null;
 	return decryptSessionCookie(env, token);
 }
+
+export async function decryptJson(env: Env, encryptedJson: string): Promise<any> {
+	try {
+		const key = await importAesKey(env.SESSION_SECRET);
+		const { iv, ciphertext } = base64urlSplit(encryptedJson);
+		const plaintext = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext));
+		const dec = new TextDecoder();
+		return JSON.parse(dec.decode(plaintext));
+	} catch {
+		return null;
+	}
+}
+
+export async function encryptJson(env: Env, data: any): Promise<string> {
+	const key = await importAesKey(env.SESSION_SECRET);
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const enc = new TextEncoder();
+	const plaintext = enc.encode(JSON.stringify(data));
+	const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext));
+	return base64urlConcat(iv, ciphertext);
+}
