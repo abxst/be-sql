@@ -11,14 +11,27 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+import { createErrorResponse } from './error-handler';
+
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
-		const { routeRequest } = await import('./router');
-		const { withCors, preflightCors } = await import('./cors');
-		if (request.method === 'OPTIONS') {
-			return preflightCors(request);
+		const context = { file: 'index.ts', function: 'fetch' };
+		
+		try {
+			const { routeRequest } = await import('./router');
+			const { withCors, preflightCors } = await import('./cors');
+			
+			if (request.method === 'OPTIONS') {
+				return preflightCors(request, env);
+			}
+			
+			const resp = await routeRequest(request, env);
+			return withCors(resp, request, env);
+		} catch (error) {
+			return createErrorResponse(error, { ...context, details: { 
+				url: request.url, 
+				method: request.method 
+			}}, 500);
 		}
-		const resp = await routeRequest(request, env);
-		return withCors(resp, request);
 	},
 } satisfies ExportedHandler<Env>;

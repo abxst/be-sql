@@ -1,10 +1,21 @@
 /** CORS helpers. */
 
-const allowedOrigins = ['https://webpanel.hainth.edu.vn', 'https://fe-webpanel.pages.dev']; // Add production origins here
+/**
+ * Get allowed origins from environment
+ * Reads from ALLOWED_ORIGINS env variable (comma-separated list)
+ */
+function getAllowedOrigins(env: Env): string[] {
+	const envOrigins = env.ALLOWED_ORIGINS;
+	if (typeof envOrigins === 'string' && envOrigins.trim()) {
+		return envOrigins.split(',').map(o => o.trim());
+	}
+	return [];
+}
 
-export function withCors(response: Response, request: Request): Response {
+export function withCors(response: Response, request: Request, env: Env): Response {
 	const origin = request.headers.get('origin') || '';
-	const allowOrigin = allowedOrigins.includes(origin) ? origin : '';
+	const allowedOrigins = getAllowedOrigins(env);
+	const allowOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0] || '*';
 	const headers = new Headers(response.headers);
 	headers.set('Access-Control-Allow-Origin', allowOrigin);
 	headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
@@ -14,9 +25,10 @@ export function withCors(response: Response, request: Request): Response {
 	return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
-export function preflightCors(request: Request): Response {
+export function preflightCors(request: Request, env: Env): Response {
 	const origin = request.headers.get('origin') || '';
-	const allowOrigin = allowedOrigins.includes(origin) ? origin : '';
+	const allowedOrigins = getAllowedOrigins(env);
+	const allowOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0] || '*';
 	const headers: HeadersInit = {
 		'Access-Control-Allow-Origin': allowOrigin,
 		'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',

@@ -1,18 +1,30 @@
 import { createConfig } from '../config';
+import { logError } from '../error-handler';
 
 /**
  * Execute a SQL query and return a JSON Response
  */
 export async function respondSqlQuery(env: Env, query: string): Promise<Response> {
-	const { executeSqlQuery } = await import('../sql');
-	const config = createConfig(env);
+	const context = { file: 'routes/utils.ts', function: 'respondSqlQuery' };
+	
 	try {
+		const { executeSqlQuery } = await import('../sql');
+		const config = createConfig(env);
 		const data = await executeSqlQuery(config, query);
 		const body = JSON.stringify({ status: 'ok', data }, null, 2);
 		return new Response(body, { headers: { 'content-type': 'application/json; charset=utf-8' } });
 	} catch (error) {
+		logError(error, { ...context, details: { query } });
 		const message = error instanceof Error ? error.message : 'Unknown error';
-		const body = JSON.stringify({ status: 'error', message }, null, 2);
+		const body = JSON.stringify({ 
+			status: 'error', 
+			message,
+			context: {
+				file: context.file,
+				function: context.function,
+				timestamp: new Date().toISOString(),
+			}
+		}, null, 2);
 		return new Response(body, { status: 502, headers: { 'content-type': 'application/json; charset=utf-8' } });
 	}
 }

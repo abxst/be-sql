@@ -10,6 +10,10 @@ declare global {
 		URL_API_SQL: string;
 		/** Secret for encrypting/signing session cookies */
 		SESSION_SECRET: string;
+		/** Comma-separated list of allowed CORS origins (optional, defaults to localhost) */
+		ALLOWED_ORIGINS?: string;
+		/** Enable debug logging (true/false, default: true) */
+		IS_DEBUG?: string;
 	}
 }
 
