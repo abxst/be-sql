@@ -44,7 +44,7 @@ export async function handleCheckDb(request: Request, env: Env): Promise<Respons
 	
 	try {
 		// SQLite syntax
-		return respondSqlQuery(env, 'SELECT * FROM "demo" WHERE 1');
+		return respondSqlQuery(env, 'SELECT * FROM "comments" WHERE 1');
 	} catch (error) {
 		return createErrorResponse(error, context, 500);
 	}
