@@ -32,7 +32,8 @@ export async function handleGetKey(request: Request, env: Env): Promise<Response
 		try {
 			const { executeSqlQuery } = await import('../sql');
 			const config = createConfig(env);
-			const keysQuery = `SELECT * FROM \`ukeys\` WHERE \`prefix\`='${escapeSqlString(userPrefix)}' ORDER BY \`id_key\` ASC LIMIT ${pageSize} OFFSET ${offset}`;
+			// SQLite syntax
+			const keysQuery = `SELECT * FROM "ukeys" WHERE "prefix"='${escapeSqlString(userPrefix)}' ORDER BY "id_key" ASC LIMIT ${pageSize} OFFSET ${offset}`;
 			const data = await executeSqlQuery(config, keysQuery);
 			return jsonResponse({ page, pageSize, data });
 		} catch (error) {
@@ -99,9 +100,9 @@ export async function handleAddKey(request: Request, env: Env): Promise<Response
 				generatedKeys.push(key);
 			}
 
-			// Build multiple VALUES for single INSERT
+			// Build multiple VALUES for single INSERT (SQLite syntax)
 			const values = generatedKeys.map(key => `('${escapeSqlString(key)}', ${keyLength}, '${escapeSqlString(userPrefix)}')`).join(', ');
-			const insertQuery = `INSERT INTO \`ukeys\`(\`key\`, \`length\`, \`prefix\`) VALUES ${values}`;
+			const insertQuery = `INSERT INTO "ukeys"("key", "length", "prefix") VALUES ${values}`;
 			await executeSqlQuery(config, insertQuery);
 
 			// Return the generated keys directly
@@ -155,7 +156,8 @@ export async function handleDeleteKey(request: Request, env: Env): Promise<Respo
 		try {
 			const { executeSqlQuery } = await import('../sql');
 			const config = createConfig(env);
-			const deleteQuery = `DELETE FROM \`ukeys\` WHERE \`key\` = '${escapeSqlString(keyToDelete)}' AND \`prefix\` = '${escapeSqlString(userPrefix)}'`;
+			// SQLite syntax
+			const deleteQuery = `DELETE FROM "ukeys" WHERE "key" = '${escapeSqlString(keyToDelete)}' AND "prefix" = '${escapeSqlString(userPrefix)}'`;
 			const result = await executeSqlQuery(config, deleteQuery);
 
 			logInfo('Key deleted', { userPrefix, key: keyToDelete, timestamp: new Date().toISOString() }, env);
@@ -200,7 +202,8 @@ export async function handleResetKey(request: Request, env: Env): Promise<Respon
 		try {
 			const { executeSqlQuery } = await import('../sql');
 			const config = createConfig(env);
-			const resetQuery = `UPDATE \`ukeys\` SET \`id_device\` = NULL WHERE \`key\` = '${escapeSqlString(keyToReset)}' AND \`prefix\` = '${escapeSqlString(userPrefix)}'`;
+			// SQLite syntax
+			const resetQuery = `UPDATE "ukeys" SET "id_device" = NULL WHERE "key" = '${escapeSqlString(keyToReset)}' AND "prefix" = '${escapeSqlString(userPrefix)}'`;
 			const result = await executeSqlQuery(config, resetQuery);
 
 			logInfo('Key reset', { userPrefix, key: keyToReset, timestamp: new Date().toISOString() }, env);

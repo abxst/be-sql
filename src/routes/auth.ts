@@ -105,7 +105,8 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 		try {
 			const { executeSqlQuery } = await import('../sql');
 			const config = createConfig(env);
-			const q = `INSERT INTO \`users\`(\`username\`, \`password\`, \`prefix\`) VALUES ('${escapeSqlString(usernameStr)}','${escapeSqlString(passwordStr)}','${escapeSqlString(prefixStr)}')`;
+			// SQLite syntax
+			const q = `INSERT INTO "users"("username", "password", "prefix") VALUES ('${escapeSqlString(usernameStr)}','${escapeSqlString(passwordStr)}','${escapeSqlString(prefixStr)}')`;
 			const data = await executeSqlQuery(config, q);
 			return jsonResponse({ status: 'ok', data });
 		} catch (error) {
@@ -174,15 +175,15 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 			const { executeSqlQuery } = await import('../sql');
 			const config = createConfig(env);
 			
-			// Query to check user credentials
-			const selectQuery = `SELECT * FROM \`users\` WHERE \`username\`='${escapeSqlString(usernameStr)}' AND \`password\`='${escapeSqlString(passwordStr)}' LIMIT 1`;
+			// Query to check user credentials (SQLite syntax)
+			const selectQuery = `SELECT * FROM "users" WHERE "username"='${escapeSqlString(usernameStr)}' AND "password"='${escapeSqlString(passwordStr)}' LIMIT 1`;
 			const rows = await executeSqlQuery(config, selectQuery);
 			if (!Array.isArray(rows) || rows.length === 0) {
 				logError(new Error('Invalid credentials'), { ...context, details: { username: usernameStr } });
 				return jsonError('Invalid credentials', 401);
 			}
-			// Update last_login
-			const updateQuery = `UPDATE \`users\` SET \`last_login\` = CURRENT_TIMESTAMP WHERE \`username\` = '${escapeSqlString(usernameStr)}'`;
+			// Update last_login (SQLite: datetime('now') or CURRENT_TIMESTAMP both work)
+			const updateQuery = `UPDATE "users" SET "last_login" = datetime('now') WHERE "username" = '${escapeSqlString(usernameStr)}'`;
 			await executeSqlQuery(config, updateQuery);
 			const row = rows[0] as any;
 			const prefix = String(row?.prefix ?? '');

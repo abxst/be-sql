@@ -76,8 +76,14 @@ src/
 ├── router.ts        # Main router (clean & minimal)
 ├── auth.ts          # Authentication utilities
 ├── config.ts        # Configuration management
-├── sql.ts           # SQL execution
+├── sql.ts           # SQL execution (SQLite syntax)
+├── client-login.ts  # Client key validation
 └── index.ts         # Entry point
+
+docs/
+├── ERROR-HANDLING.md  # Error handling guide
+├── VALIDATION.md      # Validation rules
+└── SQLITE-SCHEMA.md   # Database schema (SQLite)
 ```
 
 ## Xử lý lỗi (Error Handling)

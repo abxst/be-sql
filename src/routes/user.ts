@@ -18,7 +18,8 @@ export async function handleGetInfo(request: Request, env: Env): Promise<Respons
 		const userPrefix = session.prefix;
 		
 		try {
-			const infoQuery = `SELECT \`id\`, \`username\`, \`prefix\`, \`last_login\` FROM \`users\` WHERE \`prefix\` = '${escapeSqlString(userPrefix)}'`;
+			// SQLite syntax
+			const infoQuery = `SELECT "id", "username", "prefix", "last_login" FROM "users" WHERE "prefix" = '${escapeSqlString(userPrefix)}'`;
 			const { executeSqlQuery } = await import('../sql');
 			const config = createConfig(env);
 			const data = await executeSqlQuery(config, infoQuery);

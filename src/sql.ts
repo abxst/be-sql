@@ -9,23 +9,46 @@ export interface ExecuteSqlOptions {
 
 type Row = Record<string, unknown>;
 
+interface SqlMeta {
+	rows_read?: number;
+	rows_written?: number;
+	duration?: number;
+}
+
+// New format: {success: true, data: [...], meta: {...}}
+interface SqlSuccessResponse {
+	success: true;
+	data: Row[];
+	meta?: SqlMeta;
+}
+
+// Legacy format: {status: "success", data: [...]}
 interface PhpSqlSuccess {
 	status: 'success';
 	data: Row[];
 }
 
+// Error format: {status: "error", message: "..."}
 interface PhpSqlError {
 	status: 'error';
 	message?: string;
 	[key: string]: unknown;
 }
 
+// Legacy error: {error: "..."}
 interface PhpSqlLegacyError {
 	error: string;
 	[key: string]: unknown;
 }
 
-type PhpSqlResponse = PhpSqlSuccess | PhpSqlError | PhpSqlLegacyError;
+// New error format: {success: false, error: "..."}
+interface SqlErrorResponse {
+	success: false;
+	error?: string;
+	message?: string;
+}
+
+type PhpSqlResponse = SqlSuccessResponse | PhpSqlSuccess | PhpSqlError | PhpSqlLegacyError | SqlErrorResponse;
 
 /**
  * Execute a raw SQL query by forwarding it to the PHP endpoint.
@@ -86,6 +109,9 @@ export async function executeSqlQuery(config: AppConfig, query: string, options?
 		if ('status' in json && json.status === 'error') {
 			const errorJson = json as PhpSqlError;
 			message = (typeof errorJson.message === 'string' ? errorJson.message : undefined) ?? 'Unknown error';
+		} else if ('success' in json && json.success === false) {
+			const errorJson = json as SqlErrorResponse;
+			message = errorJson.error || errorJson.message || 'Unknown error';
 		} else if ('error' in json) {
 			const legacyJson = json as PhpSqlLegacyError;
 			message = typeof legacyJson.error === 'string' ? legacyJson.error : 'Unknown error';
@@ -99,6 +125,15 @@ export async function executeSqlQuery(config: AppConfig, query: string, options?
 		throw error;
 	}
 
+	// New format: {success: true, data: [...], meta: {...}}
+	if ('success' in json && json.success === true) {
+		const successJson = json as SqlSuccessResponse;
+		if (Array.isArray(successJson.data)) {
+			return successJson.data;
+		}
+	}
+
+	// Legacy format: {status: "success", data: [...]}
 	if ('status' in json) {
 		if (json.status === 'success' && Array.isArray((json as PhpSqlSuccess).data)) {
 			return (json as PhpSqlSuccess).data;
@@ -114,8 +149,21 @@ export async function executeSqlQuery(config: AppConfig, query: string, options?
 		}
 	}
 
+	// Legacy error: {error: "..."}
 	if ('error' in json) {
 		const errorMsg = (json as PhpSqlLegacyError).error;
+		const error = new Error(errorMsg);
+		logError(error, { ...context, details: { 
+			query: query.substring(0, 100),
+			apiResponse: json
+		}});
+		throw error;
+	}
+
+	// New error format: {success: false, ...}
+	if ('success' in json && json.success === false) {
+		const errorJson = json as SqlErrorResponse;
+		const errorMsg = errorJson.error || errorJson.message || 'Unknown error';
 		const error = new Error(errorMsg);
 		logError(error, { ...context, details: { 
 			query: query.substring(0, 100),

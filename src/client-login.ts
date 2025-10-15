@@ -32,9 +32,9 @@ export async function handleClientLogin(request: Request, env: Env): Promise<Res
 				const { executeSqlQuery } = await import('./sql');
 				const config = await import('./config').then(m => m.createConfig(env));
 
-				// First, check if time_start is NULL
-				const checkQuery = `SELECT \`time_start\`, \`time_end\`, \`length\` FROM \`ukeys\` WHERE \`key\` = '${escapeSqlString(key)}' LIMIT 1`;
-				const rows = await executeSqlQuery(config, checkQuery);
+		// First, check if time_start is NULL (SQLite syntax)
+		const checkQuery = `SELECT "time_start", "time_end", "length", "id_device" FROM "ukeys" WHERE "key" = '${escapeSqlString(key)}' LIMIT 1`;
+		const rows = await executeSqlQuery(config, checkQuery);
 				let statusMessage = 'ok';
 				let result;
 				if (Array.isArray(rows) && rows.length > 0) {
@@ -54,18 +54,18 @@ export async function handleClientLogin(request: Request, env: Env): Promise<Res
 							return new Response(encryptedResponseExpired, {
 								headers: { 'content-type': 'text/plain; charset=utf-8' },
 							});
-						case !row.time_start || row.time_start === null:
-							// First login: set time_start and time_end, then update id_device
-							const setTimeQuery = `UPDATE \`ukeys\` SET \`time_start\` = CURRENT_TIMESTAMP, \`time_end\` = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ${row.length} DAY), \`id_device\` = '${escapeSqlString(idDevice)}' WHERE \`key\` = '${escapeSqlString(key)}'`;
-							result = await executeSqlQuery(config, setTimeQuery);
-							statusMessage = 'first_login';
-							break;
-						case !row.id_device || row.id_device === null:
-							// Reset device: just update id_device
-							const updateQuery = `UPDATE \`ukeys\` SET \`id_device\` = '${escapeSqlString(idDevice)}' WHERE \`key\` = '${escapeSqlString(key)}'`;
-							result = await executeSqlQuery(config, updateQuery);
-							statusMessage = 'reset_device';
-							break;
+					case !row.time_start || row.time_start === null:
+						// First login: set time_start and time_end, then update id_device (SQLite syntax)
+						const setTimeQuery = `UPDATE "ukeys" SET "time_start" = datetime('now'), "time_end" = datetime('now', '+${row.length} days'), "id_device" = '${escapeSqlString(idDevice)}' WHERE "key" = '${escapeSqlString(key)}'`;
+						result = await executeSqlQuery(config, setTimeQuery);
+						statusMessage = 'first_login';
+						break;
+					case !row.id_device || row.id_device === null:
+						// Reset device: just update id_device (SQLite syntax)
+						const updateQuery = `UPDATE "ukeys" SET "id_device" = '${escapeSqlString(idDevice)}' WHERE "key" = '${escapeSqlString(key)}'`;
+						result = await executeSqlQuery(config, updateQuery);
+						statusMessage = 'reset_device';
+						break;
 						case row.id_device === idDevice && (!row.time_end || new Date(row.time_end + 'Z') >= new Date()):
 							// Correct device ID and still valid - no need to update
 							result = null; // No update, affectedRows = 0

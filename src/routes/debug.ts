@@ -43,7 +43,8 @@ export async function handleCheckDb(request: Request, env: Env): Promise<Respons
 	const context = { file: 'routes/debug.ts', function: 'handleCheckDb' };
 	
 	try {
-		return respondSqlQuery(env, 'select * from demo where 1');
+		// SQLite syntax
+		return respondSqlQuery(env, 'SELECT * FROM "demo" WHERE 1');
 	} catch (error) {
 		return createErrorResponse(error, context, 500);
 	}
