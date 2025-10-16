@@ -1,6 +1,7 @@
 import { parseRequestJsonToMap } from '../json';
 import { respondSqlQuery, jsonError, jsonResponse } from './utils';
 import { logError, createErrorResponse } from '../error-handler';
+import { ErrorCodes } from '../error-codes';
 
 /**
  * GET /check-env - Check environment variables
@@ -32,7 +33,11 @@ export async function handleCheckEnv(request: Request, env: Env): Promise<Respon
 		const body = JSON.stringify(Object.fromEntries(entries), null, 2);
 		return new Response(body, { headers: { 'content-type': 'application/json; charset=utf-8' } });
 	} catch (error) {
-		return createErrorResponse(error, context, 500);
+		return createErrorResponse(error, { 
+			...context,
+			errorCode: ErrorCodes.CONFIGURATION_ERROR,
+			env
+		});
 	}
 }
 
@@ -46,7 +51,11 @@ export async function handleCheckDb(request: Request, env: Env): Promise<Respons
 		// SQLite syntax
 		return respondSqlQuery(env, 'SELECT * FROM "comments" WHERE 1');
 	} catch (error) {
-		return createErrorResponse(error, context, 500);
+		return createErrorResponse(error, { 
+			...context,
+			errorCode: ErrorCodes.DATABASE_CONNECTION_FAILED,
+			env
+		});
 	}
 }
 
@@ -60,7 +69,12 @@ export async function handleParseJson(request: Request, env: Env): Promise<Respo
 		const maps = await parseRequestJsonToMap(request);
 		return jsonResponse(maps);
 	} catch (err) {
-		return createErrorResponse(err, { ...context, details: { message: 'Failed to parse JSON' } }, 400);
+		return createErrorResponse(err, { 
+			...context, 
+			details: { message: 'Failed to parse JSON' },
+			errorCode: ErrorCodes.JSON_PARSE_ERROR,
+			env
+		});
 	}
 }
 

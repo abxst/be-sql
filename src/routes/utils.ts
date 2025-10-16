@@ -1,5 +1,6 @@
 import { createConfig } from '../config';
-import { logError } from '../error-handler';
+import { logError, createErrorResponse, ErrorContext } from '../error-handler';
+import { ErrorCode, ErrorCodes } from '../error-codes';
 
 /**
  * Execute a SQL query and return a JSON Response
@@ -51,12 +52,27 @@ export function generateRandomKey(length: number = 20): string {
 
 /**
  * Create a standard JSON error response
+ * @deprecated Use jsonErrorWithCode instead for better error tracking
  */
 export function jsonError(message: string, status: number = 400): Response {
 	return new Response(JSON.stringify({ error: message }, null, 2), {
 		status,
 		headers: { 'content-type': 'application/json; charset=utf-8' },
 	});
+}
+
+/**
+ * Create a JSON error response with error code
+ */
+export function jsonErrorWithCode(
+	errorCode: ErrorCode,
+	context: ErrorContext,
+	env?: Env
+): Response {
+	return createErrorResponse(
+		new Error(`Error ${errorCode}`),
+		{ ...context, errorCode, env }
+	);
 }
 
 /**

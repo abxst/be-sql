@@ -2,11 +2,14 @@
  * Centralized error handling utilities
  */
 
+import { ErrorCode, getErrorDescription, getHttpStatusForErrorCode } from './error-codes';
+
 export interface ErrorContext {
 	file: string;
 	function: string;
 	details?: Record<string, any>;
 	env?: Env;
+	errorCode?: ErrorCode;
 }
 
 /**
@@ -28,6 +31,7 @@ function isDebugEnabled(env?: Env): boolean {
 export function logError(error: unknown, context: ErrorContext): void {
 	const errorInfo = {
 		timestamp: new Date().toISOString(),
+		errorCode: context.errorCode || 'N/A',
 		file: context.file,
 		function: context.function,
 		error: {
@@ -70,25 +74,32 @@ export function logDebug(message: string, data?: any, env?: Env): void {
 
 /**
  * Create a JSON error response with detailed information
- * In production (IS_DEBUG=false), only returns basic error message
- * In development (IS_DEBUG=true), returns full context and details
+ * In production (IS_DEBUG=false), only returns basic error message with error code
+ * In development (IS_DEBUG=true), returns full context and details with error code
  */
 export function createErrorResponse(
 	error: unknown,
 	context: ErrorContext,
-	statusCode: number = 500
+	statusCode?: number
 ): Response {
 	logError(error, context);
 
 	const errorMessage = error instanceof Error ? error.message : String(error);
 	const debugEnabled = isDebugEnabled(context.env);
 	
+	// Determine status code: use errorCode if provided, otherwise use statusCode parameter or default to 500
+	const finalStatusCode = context.errorCode 
+		? getHttpStatusForErrorCode(context.errorCode)
+		: (statusCode || 500);
+	
 	let responseBody: any;
 	
 	if (debugEnabled) {
-		// Development: Full error details
+		// Development: Full error details with error code
 		responseBody = {
 			status: 'error',
+			errorCode: context.errorCode || 'N/A',
+			errorDescription: context.errorCode ? getErrorDescription(context.errorCode) : undefined,
 			error: errorMessage,
 			context: {
 				file: context.file,
@@ -98,12 +109,13 @@ export function createErrorResponse(
 			...(context.details && { details: context.details }),
 		};
 	} else {
-		// Production: Basic error message only
+		// Production: Basic error message with error code only
 		const genericMessages: Record<number, string> = {
 			400: 'Bad Request',
 			401: 'Unauthorized',
 			403: 'Forbidden',
 			404: 'Not Found',
+			429: 'Too Many Requests',
 			500: 'Internal Server Error',
 			502: 'Bad Gateway',
 			503: 'Service Unavailable',
@@ -111,12 +123,15 @@ export function createErrorResponse(
 		
 		responseBody = {
 			status: 'error',
-			error: genericMessages[statusCode] || 'An error occurred',
+			errorCode: context.errorCode || 'N/A',
+			error: context.errorCode 
+				? getErrorDescription(context.errorCode)
+				: (genericMessages[finalStatusCode] || 'An error occurred'),
 		};
 	}
 
 	return new Response(JSON.stringify(responseBody, null, 2), {
-		status: statusCode,
+		status: finalStatusCode,
 		headers: { 'content-type': 'application/json; charset=utf-8' },
 	});
 }

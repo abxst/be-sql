@@ -1,9 +1,10 @@
 import { parseRequestJsonToMap } from '../json';
 import { buildSetCookie, encryptSessionCookie } from '../auth';
 import { createConfig } from '../config';
-import { escapeSqlString, jsonError, jsonResponse } from './utils';
+import { escapeSqlString, jsonError, jsonResponse, jsonErrorWithCode } from './utils';
 import { logError, createErrorResponse, logInfo } from '../error-handler';
 import { validateUsername, validatePassword, validatePrefix, containsSqlInjection } from '../validation';
+import { ErrorCodes } from '../error-codes';
 
 /**
  * POST /register - Register a new user
@@ -20,8 +21,16 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 			if (!(key in maps)) missing.push(key);
 		}
 		if (missing.length > 0) {
-			logError(new Error('Missing required fields'), { ...context, details: { missing } });
-			return jsonError(`Missing required fields: ${missing.join(', ')}`, 400);
+			logError(new Error('Missing required fields'), { 
+				...context, 
+				details: { missing },
+				errorCode: ErrorCodes.MISSING_FIELDS,
+				env 
+			});
+			return jsonErrorWithCode(ErrorCodes.MISSING_FIELDS, { 
+				...context, 
+				details: { missing }
+			}, env);
 		}
 		
 		const username = maps['username'];
@@ -31,64 +40,49 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 		// Validate username
 		const usernameValidation = validateUsername(username);
 		if (!usernameValidation.valid) {
-			logError(new Error('Username validation failed'), { ...context, details: { errors: usernameValidation.errors }, env });
+			logError(new Error('Username validation failed'), { 
+				...context, 
+				details: { errors: usernameValidation.errors },
+				errorCode: ErrorCodes.USERNAME_VALIDATION_FAILED,
+				env 
+			});
 			
-			// Show validation details only in debug mode
-			const debugEnabled = env.IS_DEBUG === 'true' || env.IS_DEBUG === '1' || env.IS_DEBUG === 'yes' || !env.IS_DEBUG;
-			if (debugEnabled) {
-				return jsonResponse({ 
-					status: 'error', 
-					error: 'Username validation failed',
-					details: usernameValidation.errors 
-				}, 400);
-			} else {
-				return jsonResponse({ 
-					status: 'error', 
-					error: 'Invalid username'
-				}, 400);
-			}
+			return jsonErrorWithCode(ErrorCodes.USERNAME_VALIDATION_FAILED, {
+				...context,
+				details: { errors: usernameValidation.errors }
+			}, env);
 		}
 		
 		// Validate password
 		const passwordValidation = validatePassword(password);
 		if (!passwordValidation.valid) {
-			logError(new Error('Password validation failed'), { ...context, details: { errors: passwordValidation.errors }, env });
+			logError(new Error('Password validation failed'), { 
+				...context, 
+				details: { errors: passwordValidation.errors },
+				errorCode: ErrorCodes.PASSWORD_VALIDATION_FAILED,
+				env 
+			});
 			
-			// Show validation details only in debug mode
-			const debugEnabled = env.IS_DEBUG === 'true' || env.IS_DEBUG === '1' || env.IS_DEBUG === 'yes' || !env.IS_DEBUG;
-			if (debugEnabled) {
-				return jsonResponse({ 
-					status: 'error', 
-					error: 'Password validation failed',
-					details: passwordValidation.errors 
-				}, 400);
-			} else {
-				return jsonResponse({ 
-					status: 'error', 
-					error: 'Invalid password'
-				}, 400);
-			}
+			return jsonErrorWithCode(ErrorCodes.PASSWORD_VALIDATION_FAILED, {
+				...context,
+				details: { errors: passwordValidation.errors }
+			}, env);
 		}
 		
 		// Validate prefix
 		const prefixValidation = validatePrefix(prefix);
 		if (!prefixValidation.valid) {
-			logError(new Error('Prefix validation failed'), { ...context, details: { errors: prefixValidation.errors }, env });
+			logError(new Error('Prefix validation failed'), { 
+				...context, 
+				details: { errors: prefixValidation.errors },
+				errorCode: ErrorCodes.PREFIX_VALIDATION_FAILED,
+				env 
+			});
 			
-			// Show validation details only in debug mode
-			const debugEnabled = env.IS_DEBUG === 'true' || env.IS_DEBUG === '1' || env.IS_DEBUG === 'yes' || !env.IS_DEBUG;
-			if (debugEnabled) {
-				return jsonResponse({ 
-					status: 'error', 
-					error: 'Prefix validation failed',
-					details: prefixValidation.errors 
-				}, 400);
-			} else {
-				return jsonResponse({ 
-					status: 'error', 
-					error: 'Invalid prefix'
-				}, 400);
-			}
+			return jsonErrorWithCode(ErrorCodes.PREFIX_VALIDATION_FAILED, {
+				...context,
+				details: { errors: prefixValidation.errors }
+			}, env);
 		}
 		
 		// At this point, we know all fields are valid strings
@@ -98,8 +92,16 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 		
 		// Check for SQL injection attempts
 		if (containsSqlInjection(usernameStr) || containsSqlInjection(passwordStr) || containsSqlInjection(prefixStr)) {
-			logError(new Error('SQL injection attempt detected'), { ...context, details: { username: usernameStr }, env });
-			return jsonError('Invalid input detected', 400);
+			logError(new Error('SQL injection attempt detected'), { 
+				...context, 
+				details: { username: usernameStr },
+				errorCode: ErrorCodes.SQL_INJECTION_DETECTED,
+				env 
+			});
+			return jsonErrorWithCode(ErrorCodes.SQL_INJECTION_DETECTED, {
+				...context,
+				details: { username: usernameStr }
+			}, env);
 		}
 		
 		try {
@@ -110,10 +112,20 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
 			const data = await executeSqlQuery(config, q);
 			return jsonResponse({ status: 'ok', data });
 		} catch (error) {
-			return createErrorResponse(error, { ...context, details: { username: usernameStr }, env }, 502);
+			return createErrorResponse(error, { 
+				...context, 
+				details: { username: usernameStr },
+				errorCode: ErrorCodes.INSERT_FAILED,
+				env 
+			});
 		}
 	} catch (err) {
-		return createErrorResponse(err, { ...context, details: { message: 'Failed to parse request JSON' }, env }, 400);
+		return createErrorResponse(err, { 
+			...context, 
+			details: { message: 'Failed to parse request JSON' },
+			errorCode: ErrorCodes.JSON_PARSE_ERROR,
+			env 
+		});
 	}
 }
 
@@ -132,8 +144,16 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 			if (!(key in maps)) missing.push(key);
 		}
 		if (missing.length > 0) {
-			logError(new Error('Missing required fields'), { ...context, details: { missing } });
-			return jsonError(`Missing required fields: ${missing.join(', ')}`, 400);
+			logError(new Error('Missing required fields'), { 
+				...context, 
+				details: { missing },
+				errorCode: ErrorCodes.MISSING_FIELDS,
+				env 
+			});
+			return jsonErrorWithCode(ErrorCodes.MISSING_FIELDS, {
+				...context,
+				details: { missing }
+			}, env);
 		}
 		
 		const username = maps['username'];
@@ -142,23 +162,43 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 		// Validate username
 		const usernameValidation = validateUsername(username);
 		if (!usernameValidation.valid) {
-			logError(new Error('Username validation failed'), { ...context, details: { errors: usernameValidation.errors } });
-			return jsonResponse({ 
-				status: 'error', 
-				error: 'Username validation failed',
-				details: usernameValidation.errors 
-			}, 400);
+			logError(new Error('Username validation failed'), { 
+				...context, 
+				details: { errors: usernameValidation.errors },
+				errorCode: ErrorCodes.USERNAME_VALIDATION_FAILED,
+				env 
+			});
+			return jsonErrorWithCode(ErrorCodes.USERNAME_VALIDATION_FAILED, {
+				...context,
+				details: { errors: usernameValidation.errors }
+			}, env);
 		}
 		
 		// Validate password (basic check for login - not as strict as register)
 		if (typeof password !== 'string' || password.length === 0) {
-			logError(new Error('Invalid password'), { ...context, details: { reason: 'empty or not string' } });
-			return jsonError('Password cannot be empty', 400);
+			logError(new Error('Invalid password'), { 
+				...context, 
+				details: { reason: 'empty or not string' },
+				errorCode: ErrorCodes.INVALID_PASSWORD,
+				env 
+			});
+			return jsonErrorWithCode(ErrorCodes.INVALID_PASSWORD, {
+				...context,
+				details: { reason: 'empty or not string' }
+			}, env);
 		}
 		
 		if (password.length > 128) {
-			logError(new Error('Password too long'), { ...context, details: { length: password.length } });
-			return jsonError('Password is too long', 400);
+			logError(new Error('Password too long'), { 
+				...context, 
+				details: { length: password.length },
+				errorCode: ErrorCodes.PASSWORD_TOO_LONG,
+				env 
+			});
+			return jsonErrorWithCode(ErrorCodes.PASSWORD_TOO_LONG, {
+				...context,
+				details: { length: password.length }
+			}, env);
 		}
 		
 		// At this point, we know username is a valid string and password is a string
@@ -167,8 +207,16 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 		
 		// Check for SQL injection attempts
 		if (containsSqlInjection(usernameStr) || containsSqlInjection(passwordStr)) {
-			logError(new Error('SQL injection attempt detected'), { ...context, details: { username: usernameStr }, env });
-			return jsonError('Invalid input detected', 400);
+			logError(new Error('SQL injection attempt detected'), { 
+				...context, 
+				details: { username: usernameStr },
+				errorCode: ErrorCodes.SQL_INJECTION_DETECTED,
+				env 
+			});
+			return jsonErrorWithCode(ErrorCodes.SQL_INJECTION_DETECTED, {
+				...context,
+				details: { username: usernameStr }
+			}, env);
 		}
 		
 		try {
@@ -179,8 +227,16 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 			const selectQuery = `SELECT * FROM "users" WHERE "username"='${escapeSqlString(usernameStr)}' AND "password"='${escapeSqlString(passwordStr)}' LIMIT 1`;
 			const rows = await executeSqlQuery(config, selectQuery);
 			if (!Array.isArray(rows) || rows.length === 0) {
-				logError(new Error('Invalid credentials'), { ...context, details: { username: usernameStr } });
-				return jsonError('Invalid credentials', 401);
+				logError(new Error('Invalid credentials'), { 
+					...context, 
+					details: { username: usernameStr },
+					errorCode: ErrorCodes.INVALID_CREDENTIALS,
+					env 
+				});
+				return jsonErrorWithCode(ErrorCodes.INVALID_CREDENTIALS, {
+					...context,
+					details: { username: usernameStr }
+				}, env);
 			}
 			// Update last_login (SQLite: datetime('now') or CURRENT_TIMESTAMP both work)
 			const updateQuery = `UPDATE "users" SET "last_login" = datetime('now') WHERE "username" = '${escapeSqlString(usernameStr)}'`;
@@ -197,10 +253,20 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
 				},
 			});
 		} catch (error) {
-			return createErrorResponse(error, { ...context, details: { username: username as string }, env }, 500);
+			return createErrorResponse(error, { 
+				...context, 
+				details: { username: username as string },
+				errorCode: ErrorCodes.SQL_QUERY_FAILED,
+				env 
+			});
 		}
 	} catch (err) {
-		return createErrorResponse(err, { ...context, details: { message: 'Failed to parse request JSON' }, env }, 400);
+		return createErrorResponse(err, { 
+			...context, 
+			details: { message: 'Failed to parse request JSON' },
+			errorCode: ErrorCodes.JSON_PARSE_ERROR,
+			env 
+		});
 	}
 }
 
@@ -220,7 +286,10 @@ export async function handleLogout(request: Request, env: Env): Promise<Response
 			},
 		});
 	} catch (error) {
-		return createErrorResponse(error, context, 500);
+		return createErrorResponse(error, { 
+			...context,
+			errorCode: ErrorCodes.UNKNOWN_ERROR
+		});
 	}
 }
 
